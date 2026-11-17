@@ -1,0 +1,52 @@
+# Shadow Deployment
+# Shadow deployment: all live traffic hits stable AND is mirrored to shadow.
+# Shadow responses are discarded — used purely for testing new version under real load.
+# Requires an ingress controller that supports traffic mirroring (e.g. NGINX ingress or Istio).
+# This YAML uses Kubernetes native approach: two deployments + separate services.
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-shadow
+  namespace: aceest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      track: shadow
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        track: shadow
+    spec:
+      containers:
+        - name: aceest
+          image: YOUR_DOCKERHUB_USERNAME/aceest-fitness:NEW_TAG
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DB_PATH
+              value: /tmp/aceest_shadow.db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-shadow-service
+  namespace: aceest
+spec:
+  selector:
+    app: aceest-fitness
+    track: shadow
+  ports:
+    - port: 80
+      targetPort: 5000
+  type: ClusterIP

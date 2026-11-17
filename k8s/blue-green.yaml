@@ -1,0 +1,105 @@
+# Blue-Green Deployment
+# Deploy v-green alongside v-blue, then flip the service selector.
+# Usage:
+#   kubectl apply -f k8s/blue-green.yaml
+#   # After verifying green is healthy:
+#   kubectl patch service aceest-bg-service -n aceest -p '{"spec":{"selector":{"slot":"green"}}}'
+#   # Rollback:
+#   kubectl patch service aceest-bg-service -n aceest -p '{"spec":{"selector":{"slot":"blue"}}}'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-blue
+  namespace: aceest
+  labels:
+    app: aceest-fitness
+    slot: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        slot: blue
+    spec:
+      containers:
+        - name: aceest
+          image: YOUR_DOCKERHUB_USERNAME/aceest-fitness:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DB_PATH
+              value: /tmp/aceest_fitness.db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-green
+  namespace: aceest
+  labels:
+    app: aceest-fitness
+    slot: green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        slot: green
+    spec:
+      containers:
+        - name: aceest
+          image: YOUR_DOCKERHUB_USERNAME/aceest-fitness:NEW_TAG
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DB_PATH
+              value: /tmp/aceest_fitness.db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-bg-service
+  namespace: aceest
+spec:
+  selector:
+    app: aceest-fitness
+    slot: blue        # change to 'green' to cut over
+  ports:
+    - port: 80
+      targetPort: 5000
+  type: NodePort
