@@ -19,13 +19,16 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'pip3 install --quiet -r requirements.txt'
+                sh '''
+                pip3 install --quiet -r requirements.txt
+                export PATH=$PATH:/var/lib/jenkins/.local/bin
+                '''
             }
         }
 
         stage('Lint') {
             steps {
-                sh 'flake8 app.py --max-line-length=120 --ignore=E501,W503'
+                sh '/var/lib/jenkins/.local/bin/flake8 app.py --max-line-length=120 --ignore=E501,W503'
             }
         }
 
