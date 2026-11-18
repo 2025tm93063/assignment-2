@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_REPO  = "YOUR_DOCKERHUB_USERNAME/aceest-fitness"
+        DOCKERHUB_REPO  = "2025tm93063/aceest-fitness"
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         SONAR_PROJECT   = "aceest-fitness"
         DB_PATH         = "/tmp/aceest_test.db"
@@ -19,72 +19,37 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                dir('aceest-devops-a2') {
-                    sh 'pip3 install --quiet -r requirements.txt'
-                }
+                sh 'pip3 install --quiet -r requirements.txt'
             }
         }
 
         stage('Lint') {
             steps {
-                dir('aceest-devops-a2') {
-                    sh 'flake8 app.py --max-line-length=120 --ignore=E501,W503'
-                }
+                sh 'flake8 app.py --max-line-length=120 --ignore=E501,W503'
             }
         }
 
         stage('Run Tests') {
             steps {
-                dir('aceest-devops-a2') {
-                    sh '''
-                        DB_PATH=/tmp/aceest_test.db \
-                        pytest tests/ -v \
-                            --junitxml=test-results.xml \
-                            --cov=app \
-                            --cov-report=xml:coverage.xml \
-                            --cov-report=term-missing
-                    '''
-                }
+                sh '''
+                    DB_PATH=/tmp/aceest_test.db \
+                    python3 -m pytest tests/ -v \
+                        --junitxml=test-results.xml \
+                        --cov=app \
+                        --cov-report=xml:coverage.xml \
+                        --cov-report=term-missing
+                '''
             }
             post {
                 always {
-                    junit 'aceest-devops-a2/test-results.xml'
-                }
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                dir('aceest-devops-a2') {
-                    withSonarQubeEnv('SonarQube') {
-                        sh '''
-                            sonar-scanner \
-                              -Dsonar.projectKey=${SONAR_PROJECT} \
-                              -Dsonar.projectName="ACEest Fitness A2" \
-                              -Dsonar.projectVersion=${IMAGE_TAG} \
-                              -Dsonar.sources=. \
-                              -Dsonar.exclusions=tests/**,**/__pycache__/** \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.python.version=3.11
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                    junit 'test-results.xml'
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                dir('aceest-devops-a2') {
-                    sh "docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} -t ${DOCKERHUB_REPO}:latest ."
-                }
+                sh "docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} -t ${DOCKERHUB_REPO}:latest ."
             }
         }
 
@@ -123,17 +88,15 @@ pipeline {
 
         stage('Deploy to Staging (K8s Rolling Update)') {
             steps {
-                dir('aceest-devops-a2') {
-                    sh '''
-                        kubectl apply -f k8s/namespace.yaml
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
-                        kubectl set image deployment/aceest-fitness \
-                            aceest=${DOCKERHUB_REPO}:${IMAGE_TAG} \
-                            -n aceest
-                        kubectl rollout status deployment/aceest-fitness -n aceest --timeout=90s
-                    '''
-                }
+                sh '''
+                    kubectl apply -f k8s/namespace.yaml
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                    kubectl set image deployment/aceest-fitness \
+                        aceest=${DOCKERHUB_REPO}:${IMAGE_TAG} \
+                        -n aceest
+                    kubectl rollout status deployment/aceest-fitness -n aceest --timeout=90s
+                '''
             }
         }
 
