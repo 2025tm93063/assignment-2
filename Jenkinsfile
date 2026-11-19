@@ -20,7 +20,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'pip3 install --quiet -r requirements.txt'
+                sh '/bin/pip3 install --quiet -r requirements.txt'
             }
         }
 
