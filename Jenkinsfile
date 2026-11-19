@@ -6,6 +6,7 @@ pipeline {
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         SONAR_PROJECT   = "aceest-fitness"
         DB_PATH         = "/tmp/aceest_test.db"
+        PATH            = "/var/lib/jenkins/.local/bin:${env.PATH}"
     }
 
     stages {
@@ -19,16 +20,13 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh '''
-                pip3 install --quiet -r requirements.txt
-                export PATH=$PATH:/var/lib/jenkins/.local/bin
-                '''
+                sh 'pip3 install --quiet -r requirements.txt'
             }
         }
 
         stage('Lint') {
             steps {
-                sh '/var/lib/jenkins/.local/bin/flake8 app.py --max-line-length=120 --ignore=E501,W503'
+                sh 'flake8 app.py --max-line-length=120 --ignore=E501,W503'
             }
         }
 
@@ -46,6 +44,24 @@ pipeline {
             post {
                 always {
                     junit 'test-results.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh '''
+                        sonar-scanner \
+                            -Dsonar.projectKey=aceest-fitness \
+                            -Dsonar.projectName=aceest-fitness \
+                            -Dsonar.projectVersion=3.2.4 \
+                            -Dsonar.sources=. \
+                            -Dsonar.inclusions=app.py \
+                            -Dsonar.exclusions=tests/**,**/*.xml \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.python.xunit.reportPath=test-results.xml
+                    '''
                 }
             }
         }
