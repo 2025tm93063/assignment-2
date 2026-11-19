@@ -6,7 +6,7 @@ pipeline {
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         SONAR_PROJECT   = "aceest-fitness"
         DB_PATH         = "/tmp/aceest_test.db"
-        PATH            = "/var/lib/jenkins/.local/bin:${env.PATH}"
+        PATH            = "/var/lib/jenkins/.local/bin:/usr/local/bin:${env.PATH}"
     }
 
     stages {
